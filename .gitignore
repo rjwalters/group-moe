@@ -7,8 +7,8 @@ build/
 .venv/
 
 # Data and checkpoints
-data/
-checkpoints/
+/data/
+/checkpoints/
 wandb/
 *.pt
 *.safetensors
