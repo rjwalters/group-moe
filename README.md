@@ -34,6 +34,7 @@ Input --> Standard Layers --> Symmetry Router --> Group Expert (or pass-through)
 | Group | Order | Irreps | Total dim |
 |---|---|---|---|
 | Z_2 | 2 | trivial (1D) + sign (1D) | 2 |
+| Z_3 | 3 | trivial (1D) + standard (2D) | 3 |
 | S_2 | 2 | trivial (1D) + sign (1D) | 2 |
 | S_3 | 6 | trivial (1D) + sign (1D) + standard (2D) | 4 |
 
@@ -82,23 +83,60 @@ The layer also handles sequence inputs (batch, seq_len, d_model) and can be inse
 ```
 src/
   groups/
-    representations.py   # Group representations in irrep basis (Z_2, S_2, S_3)
+    representations.py   # Group representations in irrep basis (Z_2, Z_3, S_2, S_3)
   modules/
     expert.py            # GroupExpert: project -> R(g) -> inject
     router.py            # SymmetryRouter: detects which group/element applies
     group_moe.py         # GroupMoELayer: combines router + experts
+  data/
+    arithmetic.py        # S_2 complement transfer dataset
+    ternary.py           # S_3 complement + composition datasets
+    multigroup.py        # S_2 + S_3 multi-group dataset
+    disparate.py         # Z_2 + Z_3 non-nested group dataset
+  models/
+    arithmetic.py        # S_2 arithmetic models
+    ternary.py           # S_3 ternary models
+    multigroup.py        # Multi-group (S_2 + S_3) models
+    disparate.py         # Disparate-group (Z_2 + Z_3) models
+scripts/
+  train_arithmetic.py    # S_2 complement transfer experiment
+  train_ternary.py       # S_3 complement + composition experiment
+  train_multigroup.py    # Multi-group routing experiment
+  train_disparate.py     # Disparate-group routing experiment
+  analyze_complement.py  # Per-pair analysis of S_2 results
 tests/
   test_groups.py         # Verify irrep matrices, composition tables
   test_modules.py        # Expert, router, and full layer tests
-scripts/                 # Experiment scripts (forthcoming)
+  test_arithmetic.py     # Arithmetic dataset + model tests
+  test_ternary.py        # Ternary dataset + model tests
+  test_multigroup.py     # Multi-group dataset + model tests
+  test_disparate.py      # Disparate-group dataset + model tests
+docs/
+  paper_outline.md       # Paper outline with evidence inventory
+  arithmetic_experiment.md
+  ternary_experiment.md
 ```
+
+## Experimental results
+
+Each experiment isolates a single question about the architecture:
+
+| Experiment | Question | Key result |
+|---|---|---|
+| S_2 arithmetic | Does complement transfer work? | **48% vs 32%** on reversed addition pairs |
+| S_3 ternary | Does it scale to larger groups? | **92% vs 86%** on permuted triples |
+| Composition split | Does irrep composition generalize? | **98.5%** on unseen 3-cycles (zero-shot) |
+| S_2 + S_3 multi-group | Can the router discriminate nested groups? | No — S_2 ⊂ S_3, so routing to S_3 is optimal |
+| Z_2 + Z_3 disparate | Can it discriminate non-nested groups? | **76%** correct Z_2 dispatch |
+
+See `docs/paper_outline.md` for the full paper structure and evidence inventory.
 
 ## Research roadmap
 
-1. **Synthetic validation** -- train on tasks with known symmetry, verify the router learns to detect it
-2. **Multiple groups** -- D_4, cyclic groups, multi-group routing and interaction
+1. ~~**Synthetic validation**~~ ✓ Complement transfer, compositional generalization, multi-group routing
+2. **Standard MoE comparison** -- generic MLP experts vs group experts at matched parameters
 3. **Language modeling** -- integrate into a small transformer, test on entity permutation tasks
-4. **Scale** -- parameter efficiency and convergence benchmarks at 1B+ parameters
+4. **Scale** -- parameter efficiency and convergence benchmarks at larger model sizes
 
 ## How the expert works
 

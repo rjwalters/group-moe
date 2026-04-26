@@ -29,8 +29,8 @@ Input → Standard Layers → Symmetry Router → Group Expert (or pass-through)
 
 ## Research Phases
 
-1. **Implement core modules**: Group representations (S_2, S_3, Z_2), irrep decomposition, router
-2. **Synthetic validation**: Train on tasks with known symmetry, verify the router learns to detect it
+1. ~~**Implement core modules**~~: Group representations (S_2, S_3, Z_2, Z_3), irrep decomposition, router ✓
+2. ~~**Synthetic validation**~~: Complement transfer (S_2, S_3), compositional generalization, multi-group routing ✓
 3. **Comparison**: Group-MoE vs standard MoE vs equivariant architectures on compositional tasks
 4. **Scale**: Test on language modeling with entity permutation and fact reordering
 
