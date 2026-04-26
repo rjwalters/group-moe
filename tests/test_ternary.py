@@ -102,6 +102,36 @@ class TestTernaryDataset:
         two_equal = [t for t in sym if len(set(t)) == 2]
         assert len(two_equal) == 20  # 5 * 4 = 20
 
+    def test_composition_split_train_has_transpositions(self):
+        """Composition split: train should have canonical + 3 transpositions."""
+        ds = TernaryDataset(split="train", num_range=5, split_mode="composition")
+        sym = [(a, b, c) for a, op, b, c, _ in ds.examples if op == OP_SYM]
+        distinct = [t for t in sym if len(set(t)) == 3]
+        # C(5,3)=10 triples × 4 orderings each = 40
+        assert len(distinct) == 40
+
+    def test_composition_split_test_has_3cycles(self):
+        """Composition split: test should have only 3-cycle orderings."""
+        ds = TernaryDataset(split="test", num_range=5, split_mode="composition")
+        sym = [(a, b, c) for a, op, b, c, _ in ds.examples if op == OP_SYM]
+        distinct = [t for t in sym if len(set(t)) == 3]
+        # C(5,3)=10 triples × 2 three-cycles each = 20
+        assert len(distinct) == 20
+
+    def test_composition_split_test_only_3cycles(self):
+        """Verify test orderings are actually 3-cycles of sorted canonical."""
+        ds = TernaryDataset(split="test", num_range=6, split_mode="composition")
+        for a, op, b, c, _ in ds.examples:
+            if op != OP_SYM or len(set([a, b, c])) != 3:
+                continue
+            canonical = tuple(sorted([a, b, c]))
+            # This ordering should be a 3-cycle of canonical, not a transposition
+            ordering = (a, b, c)
+            assert ordering in [
+                (canonical[1], canonical[2], canonical[0]),  # (012)
+                (canonical[2], canonical[0], canonical[1]),  # (021)
+            ], f"Test ordering {ordering} is not a 3-cycle of {canonical}"
+
     def test_deterministic(self):
         ds1 = TernaryDataset(split="train", seed=42, split_mode="complement")
         ds2 = TernaryDataset(split="train", seed=42, split_mode="complement")

@@ -385,7 +385,7 @@ def main():
     parser.add_argument("--log-every", type=int, default=25)
     parser.add_argument("--train-frac", type=float, default=0.5)
     parser.add_argument("--balance-alpha", type=float, default=0.01)
-    parser.add_argument("--split-mode", choices=["random", "complement"], default="complement")
+    parser.add_argument("--split-mode", choices=["random", "complement", "composition"], default="complement")
     parser.add_argument("--output-dir", type=str, default="data/ternary_results")
     parser.add_argument("--device", type=str, default=None)
     args = parser.parse_args()

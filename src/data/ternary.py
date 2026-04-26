@@ -60,11 +60,15 @@ class TernaryDataset(Dataset):
         split_mode: str = "complement",
     ):
         assert split in ("train", "val", "test")
-        assert split_mode in ("random", "complement")
+        assert split_mode in ("random", "complement", "composition")
         self.split = split
         self.num_range = num_range
 
-        if split_mode == "complement":
+        if split_mode == "composition":
+            self.examples = self._build_composition_split(
+                split, num_range, seed, train_frac, val_frac,
+            )
+        elif split_mode == "complement":
             self.examples = self._build_complement_split(
                 split, num_range, seed, train_frac, val_frac,
             )
@@ -174,6 +178,96 @@ class TernaryDataset(Dataset):
             examples = sym_test[:n_sym_val] + nonsym_val
             # Restore sym_test for test split (this is a static method, so
             # each split call rebuilds independently)
+        else:
+            examples = sym_test + nonsym_test
+
+        rng3 = np.random.RandomState(seed + 2)
+        rng3.shuffle(examples)
+        return examples
+
+    @staticmethod
+    def _build_composition_split(
+        split: str, num_range: int, seed: int,
+        train_frac: float, val_frac: float,
+    ) -> list[tuple[int, int, int, int, int]]:
+        """Compositional generalization split.
+
+        For each distinct triple (a < b < c):
+        - Train: canonical + all 3 transposition orderings (4 orderings)
+        - Test: the 2 three-cycle orderings (compositions of transpositions)
+
+        This tests whether the model can generalize from generators (transpositions)
+        to composed elements (3-cycles). GroupMoE should generalize because
+        R(3-cycle) = R(trans1) @ R(trans2) is pre-defined in the irrep basis.
+
+        For non-distinct triples and non-symmetric op: same as complement split.
+        """
+        rng = np.random.RandomState(seed)
+
+        sym_train = []
+        sym_test = []
+
+        # Distinct triples: a < b < c
+        for a in range(num_range):
+            for b in range(a + 1, num_range):
+                for c in range(b + 1, num_range):
+                    val = symmetric_fn(a, b, c)
+                    # Canonical = sorted (a, b, c)
+                    # Transpositions of canonical:
+                    #   (01): (b, a, c)
+                    #   (12): (a, c, b)
+                    #   (02): (c, b, a)
+                    # 3-cycles (compositions):
+                    #   (012): (b, c, a)
+                    #   (021): (c, a, b)
+                    train_orderings = [(a,b,c), (b,a,c), (a,c,b), (c,b,a)]
+                    test_orderings = [(b,c,a), (c,a,b)]
+
+                    for o in train_orderings:
+                        sym_train.append((o[0], OP_SYM, o[1], o[2], val))
+                    for o in test_orderings:
+                        sym_test.append((o[0], OP_SYM, o[1], o[2], val))
+
+        # Two-equal {a,a,b}: cyclic rotations are (a,a,b), (a,b,a), (b,a,a)
+        # (a,a,b) → (a,b,a) is like a transposition of positions 1,2
+        # (a,a,b) → (b,a,a) is like a 3-cycle
+        # Train: first 2, test: last 1
+        for a in range(num_range):
+            for b in range(num_range):
+                if a == b:
+                    continue
+                val = symmetric_fn(a, a, b)
+                orderings = [(a,a,b), (a,b,a), (b,a,a)]
+                # First two are "generators", third is composition-like
+                for o in orderings[:2]:
+                    sym_train.append((o[0], OP_SYM, o[1], o[2], val))
+                sym_test.append((orderings[2][0], OP_SYM, orderings[2][1], orderings[2][2], val))
+
+        # All-equal: train only
+        for a in range(num_range):
+            sym_train.append((a, OP_SYM, a, a, symmetric_fn(a, a, a)))
+
+        # Non-symmetric: random split
+        nonsym_all = []
+        for a in range(num_range):
+            for b in range(num_range):
+                for c in range(num_range):
+                    nonsym_all.append((a, OP_NONSYM, b, c, nonsym_fn(a, b, c)))
+
+        rng.shuffle(nonsym_all)
+        n_train = int(len(nonsym_all) * train_frac)
+        n_val = int(len(nonsym_all) * val_frac)
+        nonsym_train = nonsym_all[:n_train]
+        nonsym_val = nonsym_all[n_train : n_train + n_val]
+        nonsym_test = nonsym_all[n_train + n_val :]
+
+        if split == "train":
+            examples = sym_train + nonsym_train
+        elif split == "val":
+            rng2 = np.random.RandomState(seed + 1)
+            n_sym_val = max(1, int(len(sym_test) * val_frac))
+            rng2.shuffle(sym_test)
+            examples = sym_test[:n_sym_val] + nonsym_val
         else:
             examples = sym_test + nonsym_test
 
