@@ -3,7 +3,7 @@
 import torch
 import pytest
 
-from src.groups import Z2Representation, S2Representation, S3Representation
+from src.groups import Z2Representation, Z3Representation, S2Representation, S3Representation
 
 
 class TestZ2:
@@ -26,6 +26,35 @@ class TestZ2:
 
     def test_composition(self):
         g = Z2Representation()
+        assert g.verify_composition()
+
+
+class TestZ3:
+    def test_order(self):
+        g = Z3Representation()
+        assert g.order == 3
+
+    def test_total_dim(self):
+        g = Z3Representation()
+        assert g.total_dim == 3  # 1 + 2
+
+    def test_identity(self):
+        g = Z3Representation()
+        assert torch.allclose(g.irrep_matrix(0), torch.eye(3))
+
+    def test_r_cubed_is_identity(self):
+        g = Z3Representation()
+        R = g.irrep_matrix(1)
+        assert torch.allclose(R @ R @ R, torch.eye(3), atol=1e-6)
+
+    def test_r2_is_r_squared(self):
+        g = Z3Representation()
+        R = g.irrep_matrix(1)
+        R2 = g.irrep_matrix(2)
+        assert torch.allclose(R @ R, R2, atol=1e-6)
+
+    def test_composition(self):
+        g = Z3Representation()
         assert g.verify_composition()
 
 

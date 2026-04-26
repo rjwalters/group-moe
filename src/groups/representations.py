@@ -113,6 +113,47 @@ class Z2Representation(GroupRepresentation):
         return torch.tensor([[0, 1], [1, 0]], dtype=torch.long)
 
 
+class Z3Representation(GroupRepresentation):
+    """Z_3 = {e, r, r^2} with r^3 = e. Cyclic group of order 3.
+
+    Irreps over R: trivial (1D) + standard (2D, rotation by 2π/3) = 3D total.
+    """
+
+    @property
+    def name(self) -> str:
+        return "Z_3"
+
+    @property
+    def order(self) -> int:
+        return 3
+
+    @property
+    def irreps(self) -> list[Irrep]:
+        return [Irrep("trivial", 1), Irrep("standard", 2)]
+
+    def element_names(self) -> list[str]:
+        return ["e", "r", "r^2"]
+
+    def irrep_matrix(self, element_idx: int) -> torch.Tensor:
+        theta = 2 * np.pi * element_idx / 3
+        c, s = np.cos(theta), np.sin(theta)
+        block = torch.zeros(3, 3)
+        block[0, 0] = 1.0  # trivial
+        block[1, 1] = c    # standard 2D rotation
+        block[1, 2] = -s
+        block[2, 1] = s
+        block[2, 2] = c
+        return block
+
+    def multiplication_table(self) -> torch.LongTensor:
+        # r^i * r^j = r^((i+j) mod 3)
+        return torch.tensor([
+            [0, 1, 2],
+            [1, 2, 0],
+            [2, 0, 1],
+        ], dtype=torch.long)
+
+
 class S2Representation(GroupRepresentation):
     """S_2 = {e, (01)} — same as Z_2 but named as a permutation group.
 
