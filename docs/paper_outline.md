@@ -1,0 +1,107 @@
+# Group-MoE: Learned Dispatch to Algebraic Fixed-Function Units
+
+## Paper Outline
+
+### Abstract
+
+Neural networks either bake symmetry into every layer (geometric deep learning — rigid) or ignore it entirely (standard architectures — wasteful). We propose Group-MoE, a mixture-of-experts architecture where each expert implements a group representation in the irreducible representation basis, and a learned router detects which symmetry applies to the current input. This gives models algebraic fixed-function units — analogous to dedicated hardware accelerators — that the network learns to invoke selectively. We validate on synthetic tasks showing complement transfer (generalization from one ordering to unseen permutations), router discrimination between non-nested groups, and parameter efficiency from irrep compression.
+
+### 1. Introduction
+
+- **Problem**: LLMs learn functional equivariance without structural equivariance ("Ordering Is Not Invariant"). Geometric deep learning enforces structure everywhere. Neither is ideal.
+- **Insight**: Group representations as optional expert modules — learned ASICs for algebraic operations. The router is the learned dispatch controller.
+- **Analogy**: just as fixed-function hardware (FFT units, MAC arrays) provides efficiency for specific operations, irrep-basis group experts provide compressed, exact algebraic transformations that general-purpose layers must approximate expensively.
+- **Contribution**: architecture + synthetic validation showing the router learns when and which symmetry to apply.
+
+### 2. Architecture
+
+- **Group Expert module**: project to irrep subspace (d → k), apply block-diagonal R(g) (k × k), project back (k → d). Parameter-efficient by construction.
+- **Symmetry Router**: lightweight MLP over activations, outputs distribution over [pass-through, group1_e0, group1_e1, ..., group2_e0, ...]. Hard routing with soft confidence blending.
+- **Residual integration**: output = x + confidence × (expert(x) − x). Pass-through is the default.
+- **Load-balancing loss**: Switch Transformer-style auxiliary loss to prevent expert collapse.
+- **Implemented groups**: Z_2, Z_3, S_2, S_3 with verified composition tables.
+
+### 3. Experimental Setup: Complement Transfer
+
+Key methodological contribution: the **complement split**.
+
+- For each unordered set/pair, exactly one ordering goes to training; remaining orderings go to test.
+- Every test example requires transferring from a seen ordering to an unseen one.
+- The group expert should help because it knows the symmetry by construction; the baseline must learn it from data.
+
+This isolates the group structure's contribution from general memorization.
+
+### 4. Results
+
+#### 4.1 S_2 Complement Transfer (Arithmetic)
+- **Task**: (a, op, b) → result, op ∈ {+, −}, num_range=20
+- **Finding**: GroupMoE 48.4% vs baseline 31.6% on reversed addition pairs. ~50% relative improvement. Consistent across seeds.
+- **Router**: 95% S_2 for addition, 35% for subtraction — clean discrimination.
+- **Per-pair analysis**: GroupMoE exclusively solves 2.5× more pairs than baseline.
+- **Balance loss ablation**: α=0.01 sweet spot. α=0 still works (weaker). α=0.1 hurts.
+
+#### 4.2 S_3 Complement Transfer (Ternary)
+- **Task**: (a, b, c, op) → result, op ∈ {sum, nonsym}, num_range=15
+- **Finding**: GroupMoE 91.8% vs baseline 86.4% on permuted triples. Effect smaller than S_2 (1→5 transfer is harder than 1→1).
+- **Failure mode**: nonlinear symmetric functions (e_2) unlearnable from embeddings. Linear functions (sum) work.
+- **Scale matters**: num_range=10 fails, num_range=15 succeeds.
+
+#### 4.3 Multi-Group Routing: Nested Groups (S_2 + S_3)
+- **Task**: 3 operations with S_3, S_2, and no symmetry
+- **Finding**: S_3 expert dominates all routing (~70% for all ops). Router cannot discriminate because S_2 ⊂ S_3 — routing everything to S_3 is optimal.
+- **Insight**: nested groups make discrimination unnecessary. The more expressive expert subsumes the simpler one.
+
+#### 4.4 Multi-Group Routing: Disparate Groups (Z_2 + Z_3)
+- **Task**: 3 operations with Z_2 symmetry (linear), Z_3 symmetry (cubic), no symmetry
+- **Finding**: Router correctly dispatches Z_2 ops to Z_2 expert at 76% — first clean group-specific routing. Z_3 function unlearnable (cubic too hard), leaving Z_3 routing as future work.
+- **Insight**: non-nested groups enable genuine dispatch discrimination. The router learns which ASIC to invoke when the units have non-overlapping capabilities.
+
+### 5. Analysis
+
+- **When does Group-MoE help?** When (1) the task has genuine symmetry, (2) the model can learn the underlying function, (3) the complement split isolates transfer, and (4) the group expert provides structure the baseline lacks.
+- **Router behavior**: learns soft preferences, not hard rules. Discriminates operations by ~10-20pp, not 100%/0%. Uses larger experts as general-purpose compute.
+- **Failure modes**: nonlinear functions too hard for embeddings; nested groups make discrimination pointless; too little data starves embedding learning.
+- **Parameter efficiency**: group experts use O(d × k) parameters where k = Σ irrep dims, vs O(d²) for full matrices. For S_3: k=4 vs d=128 → 32× compression.
+
+### 6. Related Work
+
+- **Geometric deep learning**: Cohen & Welling (group equivariant CNNs), Bronstein et al. (geometric deep learning blueprint). Rigid — symmetry everywhere. Group-MoE makes it optional.
+- **Mixture of experts**: Shazeer et al. (Switch Transformer), Fedus et al. Experts are generic MLPs. Group-MoE gives them algebraic structure.
+- **Equivariance in transformers**: Equivariant attention (Fuchs et al.), SE(3)-Transformers. Domain-specific (molecules, point clouds). Group-MoE is domain-agnostic.
+- **Learned symmetry detection**: Dehmamy et al. (automatic symmetry discovery), Zhou et al. (meta-learning symmetries). Discover symmetries post-hoc. Group-MoE provides them as architectural options.
+- **"Ordering Is Not Invariant"** (our prior work): showed LLMs lack structural equivariance. Group-MoE is the architectural response.
+
+### 7. Discussion and Future Work
+
+- **Cognitive arithmetic units**: Group experts as learned fixed-function hardware — domain-specific algebraic accelerators with learned dispatch. Extends the ASIC analogy: just as hardware evolves from general-purpose CPUs to specialized accelerators, neural architectures can evolve from generic layers to algebraic expert modules.
+- **Compositional generalization**: train on subset of group elements, test on compositions. The irrep basis guarantees correct composition — this is the key untested prediction.
+- **Language modeling**: insert Group-MoE into a transformer. Does the router activate on entity permutations in natural language?
+- **Symmetry discovery**: can the architecture discover which groups are useful, rather than being told? Auto-construction of expert modules from data.
+- **Approximate symmetry**: real data has approximate, not exact, symmetry. Soft irrep decomposition, continuous group parameters.
+- **Scale**: does the compression advantage compound at scale? Larger models, larger groups, more experts.
+
+### 8. Conclusion
+
+Group-MoE demonstrates that neural networks can learn to dispatch to algebraic fixed-function units. The complement transfer results show genuine structural advantage from group representations. The router discrimination results show that non-nested groups enable learned specialization. The architecture provides a path from "hoping symmetry emerges" to "providing symmetry as a menu option."
+
+---
+
+## Status of Evidence
+
+| Claim | Status | Evidence |
+|-------|--------|----------|
+| S_2 complement transfer | **Strong** | 48% vs 32%, 3 seeds, balance ablation, per-pair analysis |
+| S_3 complement transfer | **Moderate** | 92% vs 86%, 2 seeds, weaker effect |
+| Router discriminates operations | **Moderate** | 95%/35% for S_2; seed-dependent for S_3 |
+| Router discriminates non-nested groups | **Preliminary** | 76% Z_2 dispatch; Z_3 task unlearnable |
+| Nested groups → no discrimination | **Strong** | S_2 ⊂ S_3 proven theoretically + empirically |
+| Parameter efficiency | **Architectural** | k=4 for S_3 vs d=128 → 32× compression (by construction) |
+| Compositional generalization | **Not yet tested** | — |
+| Language modeling benefit | **Not yet tested** | — |
+
+## What's Needed Before Submission
+
+1. **Compositional generalization experiment** — the strongest untested prediction
+2. **A learnable Z_3 task** — to complete the disparate-groups story
+3. **At least one experiment beyond toy scale** — even a small transformer with Group-MoE layers on a real task
+4. **Comparison to standard MoE** — same parameter budget, generic MLP experts vs group experts
