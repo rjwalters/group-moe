@@ -15,6 +15,7 @@ import torch.nn.functional as F
 
 from ..groups import S3Representation
 from ..modules import GroupMoELayer
+from ..modules.standard_moe import StandardMoELayer
 
 
 class ResidualMLPBlock(nn.Module):
@@ -78,6 +79,33 @@ class TernaryGroupMoE(TernaryBase):
     def forward(self, a, op, b, c):
         x = self.encode(a, op, b, c)
         x, decision = self.group_moe(x)
+        return self.head(x).squeeze(-1), decision
+
+
+class TernaryStandardMoE(TernaryBase):
+    """Ternary model with a standard MoE layer (learned transforms, no group structure).
+
+    Same routing architecture as GroupMoE — same number of options (7),
+    same expert dimensions (k=4), same residual blending — but the expert
+    applies a LEARNED k×k matrix instead of a fixed irrep matrix R(g).
+
+    This is the controlled comparison: if GroupMoE outperforms this,
+    the advantage comes from the group structure.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Match S_3 GroupMoE: 1 expert, 6 slots (like 6 group elements), dim 4
+        self.standard_moe = StandardMoELayer(
+            self.d_model,
+            n_experts=1,
+            slots_per_expert=6,
+            expert_dim=4,
+        )
+
+    def forward(self, a, op, b, c):
+        x = self.encode(a, op, b, c)
+        x, decision = self.standard_moe(x)
         return self.head(x).squeeze(-1), decision
 
 

@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data.ternary import TernaryDataset, OP_SYM, OP_NONSYM
-from src.models.ternary import TernaryGroupMoE, TernaryBaseline
+from src.models.ternary import TernaryGroupMoE, TernaryStandardMoE, TernaryBaseline
 
 
 def collate(batch: list[dict]) -> dict[str, torch.Tensor]:
@@ -203,6 +203,8 @@ def train_model(
     model_kwargs = dict(d_model=args.d_model, n_numbers=args.num_range, n_blocks=args.n_blocks)
     if model_type == "groupmoe":
         model = TernaryGroupMoE(**model_kwargs).to(device)
+    elif model_type == "standardmoe":
+        model = TernaryStandardMoE(**model_kwargs).to(device)
     else:
         model = TernaryBaseline(**model_kwargs).to(device)
 
@@ -216,9 +218,10 @@ def train_model(
         optimizer, T_max=total_steps, eta_min=1e-6
     )
 
-    use_balance = model_type == "groupmoe" and args.balance_alpha > 0
+    use_balance = model_type in ("groupmoe", "standardmoe") and args.balance_alpha > 0
     if use_balance:
-        n_router_options = model.group_moe.router.n_options
+        moe_layer = model.group_moe if hasattr(model, 'group_moe') else model.standard_moe
+        n_router_options = moe_layer.n_options if hasattr(moe_layer, 'n_options') else moe_layer.router.n_options
         print(f"Balance loss: alpha={args.balance_alpha}, n_options={n_router_options}")
 
     history = {"train": [], "val": [], "test": []}
@@ -372,7 +375,7 @@ def plot_results(results: dict[str, dict], output_dir: Path):
 
 def main():
     parser = argparse.ArgumentParser(description="Train ternary Group-MoE (S_3)")
-    parser.add_argument("--model", choices=["groupmoe", "baseline", "both"], default="both")
+    parser.add_argument("--model", choices=["groupmoe", "standardmoe", "baseline", "both", "all"], default="both")
     parser.add_argument("--d-model", type=int, default=128)
     parser.add_argument("--n-blocks", type=int, default=2)
     parser.add_argument("--num-range", type=int, default=10)
@@ -403,9 +406,12 @@ def main():
 
     torch.manual_seed(args.seed)
 
-    models_to_train = (
-        ["groupmoe", "baseline"] if args.model == "both" else [args.model]
-    )
+    if args.model == "all":
+        models_to_train = ["groupmoe", "standardmoe", "baseline"]
+    elif args.model == "both":
+        models_to_train = ["groupmoe", "baseline"]
+    else:
+        models_to_train = [args.model]
 
     all_results = {}
     for model_type in models_to_train:
