@@ -173,7 +173,7 @@ Seed & \gmoe{} & Baseline & Relative gain \\
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/fig2_s2_heatmaps.png}
-\caption{Per-pair analysis of $S_2$ complement transfer (num\_range=20, seed=42). \textbf{Top row:} absolute prediction error for Group-MoE (left) and baseline (right) on addition test pairs $(b, +, a)$. Green = low error. \textbf{Bottom left:} advantage map (blue = Group-MoE has lower error). \textbf{Bottom right:} router decisions---dark blue indicates routing to the $S_2$ expert. The router consistently activates $S_2$ for addition pairs across the number space.}
+\caption{Per-pair analysis of $S_2$ complement transfer (num\_range=20, seed=42). \textbf{Top row:} absolute prediction error for Group-MoE (left) and baseline (right) on addition test pairs $(b, +, a)$. Green = low error. \textbf{Bottom left:} advantage map (blue = Group-MoE has lower error). \textbf{Bottom right:} router decisions---dark blue indicates routing to the $S_2$ expert. The router consistently activates $S_2$ for addition pairs across the number space. (Seed 42 is one of the stronger seeds; see Table~\ref{tab:s2-seeds} for seed variability.)}
 \label{fig:s2-heatmaps}
 \end{figure}
 
@@ -210,14 +210,7 @@ Baseline (no expert) & 87.0 $\pm$ 1.6\% & 97.4 $\pm$ 1.1\% \\
 \label{fig:threeway}
 \end{figure}
 
-\subsection{Does irrep composition generalize? (Transpositions $\to$ 3-Cycles)}
-\label{sec:exp-composition}
-
-The strongest theoretical prediction of group representations: since $R(\sigma_1 \sigma_2) = R(\sigma_1) R(\sigma_2)$, the expert should work for 3-cycles without ever training on them.
-
-\textbf{Setup.} Composition split: train on identity + 3 transpositions per triple (generators of $S_3$), test only on the 2 three-cycle orderings (compositions).
-
-\textbf{Result.} Across 5 seeds, \gmoe{} achieves $98.7 \pm 0.8$\% on 3-cycle orderings never seen during training. The projection $P$, learned from transposition examples, generalizes because the irrep subspace is shared across all group elements. At num\_range=10, the router achieves perfect discrimination: 100\% $S_3$ routing for the symmetric operation vs.\ 74\% for the non-symmetric control.
+\textbf{Compositional generalization.} The composition split (right column of Table~\ref{tab:threeway}) tests the strongest theoretical prediction: since $R(\sigma_1 \sigma_2) = R(\sigma_1) R(\sigma_2)$, the expert should generalize to 3-cycles from transposition-only training. All three models achieve high accuracy, but the MoE variants ($98.7\%$, $98.6\%$) outperform the baseline ($97.4\%$) by ${\sim}$1.3pp. The projection $P$, learned from transposition examples, generalizes because the irrep subspace is shared across all group elements. This composition property---guaranteed by the group homomorphism, impossible to guarantee with learned transforms---is the irrep basis's unique theoretical advantage, even though it does not produce a measurable empirical gap over StandardMoE at this scale.
 
 \subsection{Can the router discriminate between groups?}
 \label{sec:exp-multigroup}
@@ -250,7 +243,7 @@ Our experiments reveal a consistent pattern that we frame as the \textbf{lookup 
 
 \textbf{Memorization wins when:} (1)~the function decomposes into per-element contributions (e.g., sum = per-number values), so the effective table size is $O(n)$ not $O(n^k)$; (2)~the model has enough capacity relative to the table size; (3)~attention provides permutation mixing natively; (4)~enough orderings are observed that interpolation suffices.
 
-\textbf{Algebraic structure helps when:} (1)~the complement split isolates symmetry transfer from memorization; (2)~the model's backbone does not already handle permutation mixing; (3)~the effective lookup table has gaps that the group structure can fill; (4)~the irrep composition property enables zero-shot generalization to unseen composed elements.
+\textbf{Algebraic structure (irreps specifically) should help when:} (1)~the task requires composing group elements, not just recognizing individual ones---the irrep basis's unique advantage is exact composition; (2)~the group is large enough that learned transforms cannot approximate the full representation from limited data; (3)~the router initialization allows it to exploit the irrep subspace (our results show high seed variance, suggesting this is non-trivial).
 
 \textbf{A scaling prediction (untested).} The group $S_n$ has $n!$ elements. For $S_{10}$, this is 3.6 million; for $S_{20}$, $2.4 \times 10^{18}$. No model memorizes $10^{18}$ entries, but the irrep basis for $S_{20}$ remains structured and compressible. Our synthetic experiments operate in the small-table regime where memorization is competitive---our scaling studies (Appendix~\ref{app:scaling}) confirm that increasing the input range does not produce a crossover because the sum function decomposes into per-element contributions. We predict that the advantage of \gmoe{} will manifest in the \emph{large-table regime}---large groups, long sequences, combinatorial state spaces---where the factorial growth of the lookup table defeats memorization. Validating this prediction requires tasks with larger effective symmetry groups and is an important direction for future work.
 
@@ -284,9 +277,13 @@ The developmental analogy is apt: humans learn multiplication tables by rote bef
 
 \textbf{Language modeling.} Natural language contains implicit symmetry: entity permutations, fact reorderings, syntactic transforms. These create effective symmetry groups whose ``multiplication tables'' are too large for rote memorization. Inserting \gmoe{} into language models and testing with entity permutation probes~\cite{walters2025ordering} is the natural next step.
 
-\textbf{Symmetry discovery.} Currently the groups are specified a priori. A compelling extension: learn which groups are useful from data, by treating the irrep structure as differentiable or using a library of candidate groups with learned selection.
+\textbf{Symmetry discovery.} Currently the groups are specified a priori. A compelling extension: learn which groups are useful from data. MatrixNet~\cite{laird2024matrixnet} already learns group representations from data; combining its learned representations with \gmoe{}'s learned routing could yield a system that both discovers and selectively applies symmetry.
 
 \textbf{Approximate symmetry.} Real data has approximate, not exact, symmetry. Soft irrep decomposition with learned tolerance could extend \gmoe{} to noisy settings.
+
+\subsection{Limitations}
+
+Our experiments are synthetic and small-scale. The sum function does not create a combinatorial generalization challenge (Appendix~\ref{app:scaling}). The fixed irrep matrices do not consistently outperform learned transforms across seeds at this scale ($-$1.0pp average on complement, $\sigma = 3.1$\%). The $S_2$ experiment lacks a three-way comparison. The transformer experiment shows no advantage due to attention's native permutation handling on short sequences. These limitations all point in the same direction: the irrep basis's theoretical advantages (exact composition, structural compression) are real but require tasks at a scale where memorization fails---a regime we identify but do not yet test.
 
 %----------------------------------------------------------------------
 \section{Conclusion}
