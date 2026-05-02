@@ -20,22 +20,35 @@ Input → Standard Layers → Symmetry Router → Group Expert (or pass-through)
 - **Group Experts**: implement R(g) in irrep basis — block-diagonal, parameter-efficient
 - **Pass-through**: for inputs where no symmetry applies
 
-## Why This Could Work
+## Research Program
 
-- **100x parameter reduction** for symmetry-bearing transformations (irrep basis vs full matrix)
-- **Compositional generalization by construction** — group representations compose correctly
-- **Self-supervised symmetry detection** — the router learns to use group experts because they're cheaper
-- **Selective application** — symmetry used when data has it, bypassed when it doesn't
+### Paper 1: Synthetic Validation (COMPLETE)
 
-## Research Phases
+Demonstrated complement transfer, compositional generalization, and router discrimination on synthetic tasks. Published at `paper/group-moe.5/` and on rjwalters.info. Key finding: the routing architecture robustly helps (+3.2pp), while fixed irreps provide theoretical composition guarantees but don't consistently beat learned transforms at toy scale.
 
-1. ~~**Implement core modules**~~: Group representations (S_2, S_3, Z_2, Z_3), irrep decomposition, router ✓
-2. ~~**Synthetic validation**~~: Complement transfer (S_2, S_3), compositional generalization, multi-group routing ✓
-3. **Comparison**: Group-MoE vs standard MoE vs equivariant architectures on compositional tasks
-4. **Scale**: Test on language modeling with entity permutation and fact reordering
+### Paper 2: Molecular Property Prediction (NEXT)
+
+Apply Group-MoE to QM9 molecular energy prediction with SO(3) group experts. Test selective equivariance (router-detected, per-atom) against rigid equivariance (PaiNN, MACE) and no equivariance (SchNet). See `docs/molecular_proposal.md` for the full plan. Path toward AlphaFold-style protein modeling.
+
+### Key Lessons Learned
+
+- **Symmetric functions on numbers decompose** via sorted multisets — can't produce O(n!) scaling challenge. Need physics problems with genuine non-decomposable symmetry.
+- **Attention provides functional equivariance natively** on short sequences — group experts add value only when the backbone can't handle permutation mixing.
+- **The LUT-vs-algebra crossover** requires the effective lookup table to grow faster than model capacity. Real molecular systems (variable local symmetry, continuous rotations) are the right domain.
+
+## Implemented Groups
+
+| Group | Type | Module | Status |
+|-------|------|--------|--------|
+| Z_2, Z_3 | Finite cyclic | `representations.py` | Complete |
+| S_2, S_3 | Finite symmetric (hand-coded) | `representations.py` | Complete |
+| S_n (general) | Finite symmetric (Young's orthogonal) | `symmetric.py` | Complete |
+| SO(3) | Continuous rotation | `continuous.py` | TODO (Paper 2) |
 
 ## Conventions
 
 - Use `uv` for environment management
 - Core library in `src/`, experiments in `scripts/`, tests in `tests/`
 - Save checkpoints and data under `data/` (gitignored)
+- Papers in `paper/` with immutable version history (see `.claude/skills/pub/SKILL.md`)
+- Publication pipeline: `/pub-draft` → `/pub-review` → `/pub-revise` → `/pub-audit` → `/pub-website`

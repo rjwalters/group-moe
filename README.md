@@ -133,10 +133,25 @@ See `docs/paper_outline.md` for the full paper structure and evidence inventory.
 
 ## Research roadmap
 
-1. ~~**Synthetic validation**~~ ✓ Complement transfer, compositional generalization, multi-group routing
-2. **Standard MoE comparison** -- generic MLP experts vs group experts at matched parameters
-3. **Language modeling** -- integrate into a small transformer, test on entity permutation tasks
-4. **Scale** -- parameter efficiency and convergence benchmarks at larger model sizes
+### Paper 1: Synthetic Validation ✓
+
+1. ~~Complement transfer~~ (S_2: +16pp, S_3: routing architecture +3.2pp)
+2. ~~Three-way comparison~~ (GroupMoE vs StandardMoE vs Baseline, 5 seeds)
+3. ~~Compositional generalization~~ (98.7% zero-shot on 3-cycles)
+4. ~~Multi-group routing~~ (nested and non-nested discrimination)
+5. ~~Transformer compatibility~~ (zero-degradation drop-in)
+6. ~~General S_n representations~~ (Young's orthogonal form, verified through S_6)
+
+Published: `paper/group-moe.5/` and [rjwalters.info/research/2026-group-moe](https://rjwalters.info/research/2026-group-moe)
+
+### Paper 2: Molecular Property Prediction (next)
+
+1. **SO(3) group experts** -- spherical harmonics irreps for continuous rotation symmetry
+2. **QM9 benchmark** -- selective equivariance vs rigid equivariance (PaiNN) vs none (SchNet)
+3. **Per-atom routing** -- router detects local molecular symmetry
+4. **Path to proteins** -- variable local symmetry in AlphaFold-style models
+
+See `docs/molecular_proposal.md` for the full plan.
 
 ## How the expert works
 
