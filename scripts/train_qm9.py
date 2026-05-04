@@ -79,7 +79,13 @@ def main():
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--batch-size", type=int, default=100)
     parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--lr-min", type=float, default=1e-6,
+                        help="Minimum LR at the end of cosine schedule.")
     parser.add_argument("--weight-decay", type=float, default=1e-5)
+    parser.add_argument("--scheduler", choices=["cosine", "plateau"], default="cosine",
+                        help="LR schedule. cosine: deterministic decay over all epochs "
+                             "(robust to noisy val). plateau: ReduceLROnPlateau "
+                             "(broken on this dataset — val noise resets patience counter).")
     parser.add_argument("--scheduler-patience", type=int, default=80)
     parser.add_argument("--scheduler-factor", type=float, default=0.8)
     parser.add_argument("--seed", type=int, default=0)
@@ -142,13 +148,20 @@ def main():
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        mode="min",
-        factor=args.scheduler_factor,
-        patience=args.scheduler_patience,
-        min_lr=1e-7,
-    )
+    if args.scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=args.epochs, eta_min=args.lr_min,
+        )
+        print(f"[setup] scheduler=cosine, lr {args.lr:.1e} -> {args.lr_min:.1e} over {args.epochs} epochs", flush=True)
+    else:
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=args.scheduler_factor,
+            patience=args.scheduler_patience,
+            min_lr=1e-7,
+        )
+        print(f"[setup] scheduler=plateau, lr={args.lr:.1e}, patience={args.scheduler_patience}, factor={args.scheduler_factor}", flush=True)
 
     log = {
         "config": vars(args),
@@ -180,7 +193,10 @@ def main():
         train_mae = train_loss_sum / train_n
 
         val_mae = evaluate(model, loaders["val"], device)
-        scheduler.step(val_mae)
+        if args.scheduler == "cosine":
+            scheduler.step()
+        else:
+            scheduler.step(val_mae)
         epoch_time = time.time() - t_epoch
 
         # Test only every 10 epochs to save compute (long run).
