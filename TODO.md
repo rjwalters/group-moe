@@ -14,20 +14,39 @@
 
 ## Paper 2: Molecular Property Prediction (NEXT)
 
-### Phase 1: SO(3) Group Experts
+### Phase 0: Design and infrastructure
 
-- [ ] **Implement SO(3) representations**: Wigner D-matrices, spherical harmonics up to l_max=2 (total dim 9: l=0 + l=1 + l=2 = 1+3+5)
-- [ ] **Adapt GroupExpert for continuous groups**: SO(3) has infinite elements — need to parameterize by rotation angle/axis rather than discrete element index
-- [ ] **Design the router for continuous symmetry**: How does the router select a rotation? Options: discretize SO(3), predict Euler angles, or predict the irrep subspace weight
+- [x] **Design doc** locking in the SO(3) router/expert architecture (`docs/paper2_design.md`)
+- [x] **QM9 data loader** with canonical 110k/10k/10.8k split, atomref subtraction (`src/data/qm9.py`)
+- [x] **Dependencies**: torch_geometric, e3nn, ase, torch-cluster, torch-scatter
 
-### Phase 2: QM9 Benchmark
+### Phase 1: SchNet baseline (in progress)
 
-- [ ] **Molecular graph construction**: atoms as nodes, bonds/distances as edges, 3D coordinates as features
-- [ ] **QM9 data loader**: 134K molecules, standard 80/10/10 split, target properties (energy, HOMO-LUMO, dipole)
-- [ ] **SchNet baseline**: invariant message passing (distances only)
-- [ ] **SchNet + GroupMoE**: one message-passing layer replaced with GroupMoE using SO(3) expert
-- [ ] **PaiNN reference**: full equivariant message passing (literature numbers or reimplementation)
-- [ ] **Training and evaluation**: MAE on property predictions, router activation analysis
+- [ ] **SchNet baseline training run**: invariant message passing, U0 prediction, target ~14 meV MAE — running in background as the reference number for the Group-MoE arm
+
+### Phase 2: SO(3) Group Experts
+
+- [ ] **`src/groups/continuous.py`**: thin wrapper around e3nn.o3.Irreps so SO(3) fits the existing GroupRepresentation interface
+- [ ] **`src/modules/so3_expert.py`**: SO(3)-equivariant block (tensor-product layer, gated nonlinearity, irreps up to l_max=2)
+- [ ] **`src/modules/molecular_router.py`**: per-atom categorical router emitting K+1 symmetry-type labels (no element_idx)
+- [ ] **`src/modules/molecular_moe.py`**: composes router + experts; drop-in for PyG message-passing models
+
+### Phase 3: SchNet + GroupMoE
+
+- [ ] **`src/models/schnet_groupmoe.py`**: SchNet with one interaction block replaced by the molecular MoE layer
+- [ ] **Training run**: same hyperparameters as the baseline, on the same split
+- [ ] **PaiNN reference**: pull literature MAE or run a quick reimplementation for the upper-bound comparison
+
+### Phase 4: Analysis
+
+- [ ] **Router activation patterns**: does the router activate differently on sp³ vs sp² carbons, on aromatic ring atoms, on hydrogens? (the interpretability win)
+- [ ] **Compute cost**: params, FLOPs, wall time vs PaiNN — selective equivariance should be cheaper than always-on
+- [ ] **Ablation**: routing on/off, K = 1 vs K = 3, l_max = 1 vs 2
+
+### Phase 5: Paper
+
+- [ ] Write up using existing /pub pipeline
+- [ ] Connect to AlphaFold and protein modeling in Discussion
 
 ### Phase 3: Analysis
 
@@ -42,7 +61,7 @@
 
 ## Open Research Questions
 
-- [ ] How to handle continuous groups (SO(3)) in the discrete routing framework?
+- [x] How to handle continuous groups (SO(3)) in the discrete routing framework? → categorical router over symmetry-type labels + SO(3)-equivariant experts (see `docs/paper2_design.md`)
 - [ ] Can the router learn to detect local point-group symmetry (C_2v, T_d, etc.) from molecular environments?
 - [ ] Does selective equivariance help more on larger molecules where local symmetry varies?
 - [ ] Can Group-MoE match full equivariance (PaiNN/MACE) on QM9 while being computationally cheaper?

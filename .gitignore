@@ -22,5 +22,10 @@ wandb/
 .DS_Store
 Thumbs.db
 
+# Secrets
+.env
+.env.*
+!.env.example
+
 # Jupyter
 .ipynb_checkpoints/
