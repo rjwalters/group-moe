@@ -39,7 +39,7 @@ Atom features → Message Passing Layers → [GroupMoE Layer] → Message Passin
 Three models:
 1. **SchNet baseline** — invariant message passing (distances only)
 2. **SchNet + GroupMoE** — one layer replaced with GroupMoE using SO(3) spherical harmonics irreps
-3. **PaiNN reference** — full equivariant message passing (existing benchmark)
+3. **ViSNet reference** — full equivariant message passing (modern PaiNN successor; PyG-native)
 
 **Group experts for molecules:**
 - SO(3) spherical harmonics: l=0 (invariant), l=1 (vector), l=2 (tensor) — total dim = 1+3+5 = 9
@@ -48,7 +48,7 @@ Three models:
 **Dataset:** QM9 (134K molecules, up to 9 heavy atoms). Standard 80/10/10 split.
 
 **What to measure:**
-- MAE on property predictions (compare to SchNet and PaiNN)
+- MAE on property predictions (compare to SchNet and ViSNet)
 - Router activation patterns: does the router learn to activate on symmetric local environments?
 - Computational cost: Group-MoE should be faster than full equivariance (fewer parameters, selective application)
 
@@ -87,7 +87,7 @@ This connects to AlphaFold by showing that Group-MoE can handle the variable sym
 | Approach | Equivariance | When Applied | Our Advantage |
 |----------|-------------|--------------|---------------|
 | SchNet | Invariant only | Always | We add selective equivariance |
-| PaiNN | Full E(3) equivariant | Always, everywhere | We apply only where detected |
+| PaiNN / ViSNet | Full E(3) equivariant | Always, everywhere | We apply only where detected |
 | MACE | Higher-order equivariant | Always, everywhere | We adapt per-atom |
 | **Group-MoE** | **Selective, per-atom** | **Router-detected** | **Optional symmetry** |
 
@@ -99,7 +99,7 @@ This connects to AlphaFold by showing that Group-MoE can handle the variable sym
 
 ## Risk Assessment
 
-**High risk:** The advantage of selective equivariance may not materialize on QM9 — the molecules are small enough that full equivariance (PaiNN) isn't wasteful. The benefit should be clearer on larger systems (proteins, materials).
+**High risk:** The advantage of selective equivariance may not materialize on QM9 — the molecules are small enough that full equivariance (ViSNet) isn't wasteful. The benefit should be clearer on larger systems (proteins, materials).
 
 **Medium risk:** Implementing SO(3) representations properly is non-trivial. Could use e3nn library as a reference or dependency.
 

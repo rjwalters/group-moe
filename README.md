@@ -147,7 +147,7 @@ Published: `paper/group-moe.5/` and [rjwalters.info/research/2026-group-moe](htt
 ### Paper 2: Molecular Property Prediction (in progress)
 
 1. **SO(3) group experts** -- spherical harmonics irreps for continuous rotation symmetry, applied via tensor-product layers in the irrep basis (e3nn)
-2. **QM9 benchmark** -- selective equivariance vs rigid equivariance (PaiNN) vs none (SchNet)
+2. **QM9 benchmark** -- selective equivariance vs rigid equivariance (ViSNet) vs none (SchNet)
 3. **Per-atom routing** -- categorical router emits a symmetry-type label (tetrahedral / octahedral / planar / pass-through) per atom
 4. **Path to proteins** -- variable local symmetry in AlphaFold-style models
 

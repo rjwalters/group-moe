@@ -15,10 +15,21 @@
 set -euo pipefail
 
 REPO=/home/ubuntu/group-moe
-FS=/lambda/nfs/group-moe-data
 
-# Cache uv's wheel cache on the persistent filesystem so torch-cluster /
-# torch-scatter (CUDA wheels, ~10 min to compile) only build once.
+# Persistent filesystem (when attached). Region-locked in Lambda — runs in
+# regions without our FS (e.g. asia-south-1 for A100 capacity overflow) fall
+# back to instance-local paths. Set LAMBDA_NO_FS=1 to opt out of the FS path
+# even when one *is* attached (rare).
+FS=/lambda/nfs/group-moe-data
+if [ "${LAMBDA_NO_FS:-}" = "1" ] || [ ! -d "$FS" ]; then
+    echo "[remote] no persistent filesystem available — using instance-local paths"
+    FS="$HOME/group-moe-data"
+    mkdir -p "$FS"
+fi
+
+# Cache uv's wheel cache (on FS if mounted, else on instance SSD). Torch-cluster
+# / torch-scatter compile against torch (~10-15 min); cache only helps across
+# runs that share the FS, which the no-FS branch does not.
 export UV_CACHE_DIR="$FS/.uv-cache"
 
 cd "$REPO"
@@ -28,12 +39,11 @@ echo "[remote] python: $(python3 --version)"
 echo "[remote] nvidia driver:"
 nvidia-smi --query-gpu=name,driver_version,memory.total,compute_cap --format=csv,noheader 2>&1 || echo "NO GPU DETECTED"
 echo "[remote] cuda runtime (from driver): $(nvidia-smi 2>/dev/null | grep -oE 'CUDA Version: [0-9.]+' || echo 'unknown')"
-echo "[remote] persistent fs:"
+echo "[remote] storage path: $FS"
 df -h "$FS" | tail -1
 
 # Mirror local layout: data/qm9/ holds both the dataset (raw/, processed/) and
-# per-run subdirectories (e.g. schnet_baseline/). All of it lives on the
-# persistent filesystem so it survives instance termination.
+# per-run subdirectories (e.g. schnet_baseline/).
 mkdir -p "$FS/data/qm9" "$UV_CACHE_DIR"
 echo "[remote] uv cache dir: $UV_CACHE_DIR ($(du -sh "$UV_CACHE_DIR" 2>/dev/null | awk '{print $1}'))"
 
@@ -118,5 +128,9 @@ fi
 
 # Run training. Use the venv's python directly (not `uv run`) to avoid uv-sync
 # replacing our pinned-CUDA torch with the default-CUDA wheel.
-echo "[remote] launching training: $*"
-exec "$REPO/.venv/bin/python" scripts/train_qm9.py "$@"
+#
+# Training script is configurable via TRAIN_SCRIPT env var (default: SchNet
+# baseline). The orchestrator (lambda_train.sh) forwards it.
+TRAIN_SCRIPT="${TRAIN_SCRIPT:-scripts/train_qm9.py}"
+echo "[remote] launching training: $TRAIN_SCRIPT $*"
+exec "$REPO/.venv/bin/python" "$TRAIN_SCRIPT" "$@"

@@ -78,7 +78,7 @@ sum-pool over atoms
 energy prediction
 ```
 
-The "no equivariance" arm omits the GroupMoE layer (or replaces it with an identity). The "rigid equivariance" arm is PaiNN, which uses tensor-product equivariant message passing throughout.
+The "no equivariance" arm omits the GroupMoE layer (or replaces it with an identity). The "rigid equivariance" arm is ViSNet (Wang et al. 2024), an equivariant vector-scalar message-passing model that's the modern PaiNN successor and is shipped in PyG. (PyG does not ship PaiNN itself; ViSNet is the closest in-tree analogue and outperforms PaiNN on QM9 in the original paper.)
 
 ## Code structure (additions only — no edits to existing modules)
 
@@ -103,16 +103,16 @@ QM9 internal energy U0, MAE in meV, on the canonical 110k/10k/13k split.
 
 | Model | Equivariance | Router? | Expected MAE (meV) |
 |---|---|---|---|
-| SchNet (baseline) | none | n/a | ~14 |
-| SchNet + GroupMoE | selective per-atom | yes | **target: between SchNet and PaiNN** |
-| PaiNN (reference) | full E(3) | n/a | ~6 |
+| SchNet (baseline) | none | n/a | ~14 (literature); 16.7 (v5 actual) |
+| SchNet + GroupMoE | selective per-atom | yes | **target: between SchNet and ViSNet** |
+| ViSNet (reference) | full E(3) (lmax=1) | n/a | ~3.3 (literature) |
 
-The Group-MoE arm doesn't need to *beat* PaiNN. It needs to (a) clearly beat SchNet on the same compute, and (b) show the router has learned interpretable per-atom symmetry detection.
+The Group-MoE arm doesn't need to *beat* ViSNet. It needs to (a) clearly beat SchNet on the same compute, and (b) show the router has learned interpretable per-atom symmetry detection.
 
 ### Auxiliary measurements
 
 1. **Router activation by element:** does the router fire `tetrahedral` more on sp³ carbons than on sp² carbons? This is the interpretability win.
-2. **Compute cost:** params, FLOPs, wall time vs PaiNN. Selective equivariance should be cheaper than always-on.
+2. **Compute cost:** params, FLOPs, wall time vs ViSNet. Selective equivariance should be cheaper than always-on.
 3. **Ablation:** routing on/off, K = 1 vs K = 3, l_max = 1 vs 2.
 
 ### Failure modes worth naming up front
@@ -125,7 +125,7 @@ The Group-MoE arm doesn't need to *beat* PaiNN. It needs to (a) clearly beat Sch
 
 - MD17 (forces) — Phase 2 in the proposal; defer until QM9 result is in
 - Protein-scale (AlphaFold connection) — Phase 3; defer to a follow-up
-- Comparison to MACE, NequIP, ViSNet — interesting but not needed to make the selective-equivariance point
+- Comparison to MACE, NequIP — interesting but not needed to make the selective-equivariance point (ViSNet *is* the rigid-equivariance baseline; see Phase 1.5)
 
 ## Decision log
 
@@ -133,3 +133,4 @@ The Group-MoE arm doesn't need to *beat* PaiNN. It needs to (a) clearly beat Sch
 - **2026-05-02:** K = 3 experts + pass-through (tetrahedral, octahedral, planar; "asymmetric" handled by pass-through).
 - **2026-05-02:** Use `e3nn` for irrep ops rather than reimplementing Wigner D / Clebsch-Gordan from scratch. Saves weeks; standard in the field.
 - **2026-05-02:** SchNet as the host model (not PaiNN) so the equivariance comes *only* from the inserted GroupMoE block. Cleanly isolates the contribution.
+- **2026-05-06:** ViSNet replaces PaiNN as the "rigid equivariance" reference baseline. Reason: PyG ships ViSNet but not PaiNN, and ViSNet is the modern equivariant successor (outperforms PaiNN on QM9 in the ViSNet paper). Same architectural category, no new dependencies.

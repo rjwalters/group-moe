@@ -29,7 +29,7 @@ fi
 
 API_BASE="https://cloud.lambda.ai/api/v1"
 SSH_KEY_NAME="${LAMBDA_SSH_KEY:-mac-studio}"
-FS_NAME="${LAMBDA_FS_NAME:-group-moe-data}"
+FS_NAME="${LAMBDA_FS_NAME-group-moe-data}"  # `-` not `:-` so LAMBDA_FS_NAME= (empty) means "no filesystem"
 DEFAULT_REGION="${LAMBDA_REGION:-us-west-1}"
 
 lambda_api() {
@@ -77,19 +77,33 @@ case "${1:-help}" in
         fi
         REGION="${3:-$DEFAULT_REGION}"
 
-        echo "Launching $2 in $REGION with filesystem $FS_NAME..." >&2
-        PAYLOAD=$(jq -n \
-            --arg region "$REGION" \
-            --arg type "$2" \
-            --arg ssh_key "$SSH_KEY_NAME" \
-            --arg fs "$FS_NAME" \
-            '{
-                region_name: $region,
-                instance_type_name: $type,
-                ssh_key_names: [$ssh_key],
-                file_system_names: [$fs],
-                name: "group-moe-training"
-            }')
+        if [ -n "$FS_NAME" ]; then
+            echo "Launching $2 in $REGION with filesystem $FS_NAME..." >&2
+            PAYLOAD=$(jq -n \
+                --arg region "$REGION" \
+                --arg type "$2" \
+                --arg ssh_key "$SSH_KEY_NAME" \
+                --arg fs "$FS_NAME" \
+                '{
+                    region_name: $region,
+                    instance_type_name: $type,
+                    ssh_key_names: [$ssh_key],
+                    file_system_names: [$fs],
+                    name: "group-moe-training"
+                }')
+        else
+            echo "Launching $2 in $REGION (no filesystem)..." >&2
+            PAYLOAD=$(jq -n \
+                --arg region "$REGION" \
+                --arg type "$2" \
+                --arg ssh_key "$SSH_KEY_NAME" \
+                '{
+                    region_name: $region,
+                    instance_type_name: $type,
+                    ssh_key_names: [$ssh_key],
+                    name: "group-moe-training"
+                }')
+        fi
         RESPONSE=$(curl -s -u "$LAMBDA_API_KEY:" -X POST "$API_BASE/instance-operations/launch" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")

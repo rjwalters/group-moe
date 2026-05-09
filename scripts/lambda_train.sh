@@ -26,7 +26,6 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LAMBDA_CMD="$SCRIPT_DIR/lambda.sh"
 STATE_DIR="$REPO_DIR/.lambda-state"
 mkdir -p "$STATE_DIR"
-STATE_FILE="$STATE_DIR/current-instance"
 
 # --- argument parsing ---
 if [ $# -lt 1 ]; then
@@ -51,6 +50,10 @@ for ((i=0; i<${#TRAIN_ARGS[@]}; i++)); do
     fi
 done
 
+# Per-run-name state file so concurrent orchestrators don't clobber each
+# other's instance IDs (the cleanup trap reads its own state file to terminate).
+STATE_FILE="$STATE_DIR/${RUN_NAME}-instance"
+
 REGION="${LAMBDA_REGION:-us-west-1}"
 
 # --- cost preview ---
@@ -69,8 +72,8 @@ cat <<EOF
 ================================================================
   Instance type:  $INSTANCE_TYPE
   Region:         $REGION
-  Filesystem:     group-moe-data
-  Train command:  scripts/train_qm9.py ${TRAIN_ARGS[*]}
+  Filesystem:     ${LAMBDA_FS_NAME-group-moe-data}
+  Train command:  ${TRAIN_SCRIPT:-scripts/train_qm9.py} ${TRAIN_ARGS[*]}
   Run name:       $RUN_NAME
   Price:          \$$PRICE_PER_HR/hr
   Auto-terminate: ${LAMBDA_NO_TERMINATE:+disabled (LAMBDA_NO_TERMINATE=1)}${LAMBDA_NO_TERMINATE:-yes}
@@ -179,6 +182,9 @@ REMOTE_ENV=""
 if [ -n "${FORCE_REBUILD_VENV:-}" ]; then
     REMOTE_ENV="$REMOTE_ENV FORCE_REBUILD_VENV=$FORCE_REBUILD_VENV"
 fi
+if [ -n "${TRAIN_SCRIPT:-}" ]; then
+    REMOTE_ENV="$REMOTE_ENV TRAIN_SCRIPT=$TRAIN_SCRIPT"
+fi
 echo "[lambda_train] starting training (output streams below)..." >&2
 echo "================================================================"
 ssh -o StrictHostKeyChecking=accept-new \
@@ -189,11 +195,13 @@ ssh -o StrictHostKeyChecking=accept-new \
 echo "================================================================"
 
 # --- sync results back ---
+# Use the in-repo symlink path (set up by lambda_remote_setup.sh) so this works
+# whether output landed on the persistent FS or on instance-local storage.
 LOCAL_RUN_DIR="$REPO_DIR/data/qm9/$RUN_NAME"
 mkdir -p "$LOCAL_RUN_DIR"
 echo "[lambda_train] rsyncing results to $LOCAL_RUN_DIR..." >&2
 rsync -az -e "ssh -o StrictHostKeyChecking=accept-new" \
-    "ubuntu@$IP:/lambda/nfs/group-moe-data/data/qm9/$RUN_NAME/" \
+    "ubuntu@$IP:/home/ubuntu/group-moe/data/qm9/$RUN_NAME/" \
     "$LOCAL_RUN_DIR/" || echo "[lambda_train] WARNING: rsync of results failed" >&2
 
 echo "[lambda_train] training complete." >&2
