@@ -230,7 +230,11 @@ def main():
         flush=True,
     )
 
-    interaction_graph = None if device.type == "cuda" else CdistRadiusGraph(args.cutoff)
+    # CdistRadiusGraph is pure-torch and works on any device. We use it on
+    # CUDA too because the cluster nodes don't have nvcc, so the cached
+    # torch_cluster wheel is CPU-only. For MD17 (≤21 atoms per molecule)
+    # the O(N²) cost is negligible.
+    interaction_graph = CdistRadiusGraph(args.cutoff)
     model = SchNetGroupMoE(
         hidden_channels=args.hidden,
         num_filters=args.hidden,

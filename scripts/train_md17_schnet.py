@@ -159,7 +159,10 @@ def main():
         flush=True,
     )
 
-    interaction_graph = None if device.type == "cuda" else CdistRadiusGraph(args.cutoff)
+    # CdistRadiusGraph is pure-torch and works on any device. Cluster nodes
+    # lack nvcc so torch_cluster compiles CPU-only; the pure-torch fallback
+    # avoids that and is fast enough for MD17 (≤21 atoms per molecule).
+    interaction_graph = CdistRadiusGraph(args.cutoff)
     model = SchNet(
         hidden_channels=args.hidden,
         num_filters=args.hidden,
