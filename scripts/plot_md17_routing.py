@@ -16,6 +16,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def short_label(chem_label: str) -> str:
+    """Shorten verbose chemistry labels for tick text. Pass-through if no match."""
+    table = {
+        "C(ring, with H)": "ring-CH",
+        "C(ring, ipso/substituted)": "ring-C(ipso)",
+        "C(methyl)": "methyl-C",
+        "C(methylene)": "methylene-C",
+        "C(carbonyl)": "carbonyl-C",
+        "C(carboxyl/ester carbonyl)": "carboxyl-C",
+        "O(carbonyl, =O)": "=O",
+        "O(hydroxyl, -OH)": "-OH",
+        "O(ester linker, -O-)": "-O-",
+        "H(aromatic, ring)": "ring-H",
+        "H(methyl, -CH3)": "methyl-H",
+        "H(methylene, -CH2-)": "methylene-H",
+        "H(hydroxyl, -OH)": "OH-H",
+    }
+    return table.get(chem_label, chem_label)
+
+
 # Color order: pass-through (gray), tetrahedral (blue), octahedral (orange), planar (green).
 # Stable across plots so the legend reads the same.
 COLORS = {
@@ -30,6 +50,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--analysis", type=str,
                         default="data/md17/results/groupmoe_md17_aspirin_alc6/routing_analysis.json")
+    parser.add_argument("--chemistry", type=str, default=None,
+                        help="Optional chemistry_labels.json (from identify_md17_chemistry.py). "
+                             "Default: data/md17/<molecule>/chemistry_labels.json")
     parser.add_argument("--out", type=str, default=None,
                         help="Output PNG path. Default: <run-dir>/routing_<molecule>.png")
     args = parser.parse_args()
@@ -39,6 +62,13 @@ def main():
     expert_names = data["expert_names"]
     per_pos = data["per_position"]
     per_elem = data["per_element"]
+
+    # Optional chemistry labels — adds chemical role to each y-tick.
+    chem_path = Path(args.chemistry) if args.chemistry else Path(f"data/md17/{molecule}/chemistry_labels.json")
+    chem_labels: list[str] | None = None
+    if chem_path.exists():
+        chem_labels = json.loads(chem_path.read_text())["labels"]
+        print(f"Using chemistry labels from {chem_path}")
 
     # Sort positions numerically; keys are stringified ints in JSON.
     positions = sorted(per_pos.keys(), key=int)
@@ -56,10 +86,13 @@ def main():
         ax.barh(y, widths, left=left, color=COLORS[name], label=name, edgecolor="white", linewidth=0.5)
         left += widths
 
-    # Y-tick labels: position index + element symbol
-    labels = [f"{p}  ({per_pos[p]['element']})" for p in positions]
+    # Y-tick labels: position + element + (optionally) chemistry role
+    if chem_labels is not None:
+        labels = [f"{p:>3s}  {per_pos[p]['element']}  {short_label(chem_labels[int(p)])}" for p in positions]
+    else:
+        labels = [f"{p}  ({per_pos[p]['element']})" for p in positions]
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=9)
+    ax.set_yticklabels(labels, fontsize=9, family="monospace")
     ax.set_xlim(0, 1)
     ax.set_xlabel("Fraction of conformations routed to expert", fontsize=10)
     ax.set_ylabel("Atom position (chemical role fixed across conformations)", fontsize=10)
