@@ -50,11 +50,19 @@ class MolecularMoE(nn.Module):
         scalar_dim: int,
         symmetry_types: list[SymmetryType],
         load_balance_weight: float = 0.01,
+        random_route: bool = False,
     ):
         super().__init__()
         self.symmetry_types = symmetry_types
         self.n_experts = len(symmetry_types)
         self.load_balance_weight = load_balance_weight
+        # Ablation flag — replace the learned router's argmax with a uniform random
+        # assignment over (n_experts + 1) options at every forward pass. Tests whether
+        # the gain over plain SchNet comes from the learned routing decisions or just
+        # from having an MoE block with experts. Load-balancing loss is set to zero
+        # in this mode (random routing trivially balances in expectation; the loss
+        # term wouldn't drive learning anyway since the router isn't being used).
+        self.random_route = random_route
 
         self.irreps = shared_irreps(symmetry_types)
 
@@ -94,6 +102,15 @@ class MolecularMoE(nn.Module):
             )
 
         decision = self.router(scalar_features, temperature=temperature)
+        if self.random_route:
+            n_atoms = scalar_features.shape[0]
+            n_options = self.n_experts + 1
+            decision.expert_idx = torch.randint(
+                0, n_options, (n_atoms,),
+                device=scalar_features.device, dtype=decision.expert_idx.dtype,
+            )
+            # Use full conviction so the residual blend uses the expert fully.
+            decision.confidence = torch.ones_like(decision.confidence)
 
         # Pass-through atoms keep their input; only expert-routed atoms get updated.
         output = irrep_features.clone()
@@ -108,7 +125,12 @@ class MolecularMoE(nn.Module):
             delta = transformed - x_masked
             output[mask] = x_masked + conf * delta
 
-        lb_loss = self.load_balance_weight * load_balancing_loss(decision.logits)
+        if self.random_route:
+            # Don't apply load-balance pressure when router is random — random routing
+            # is already balanced in expectation and the loss term wouldn't be informative.
+            lb_loss = torch.zeros((), device=irrep_features.device)
+        else:
+            lb_loss = self.load_balance_weight * load_balancing_loss(decision.logits)
         return output, decision, lb_loss
 
     def param_summary(self) -> dict[str, int]:

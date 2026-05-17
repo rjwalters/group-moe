@@ -176,6 +176,10 @@ def main():
                         help="Default: num_interactions // 2.")
     parser.add_argument("--load-balance-weight", type=float, default=0.01)
     parser.add_argument("--include-irrep-norms", action="store_true")
+    parser.add_argument("--random-route", action="store_true",
+                        help="Ablation: replace learned router with uniform-random per-atom "
+                             "assignment. Tests whether gain over SchNet comes from learned "
+                             "routing or just from having an MoE block.")
     # Joint loss weights — Schütt SchNet paper standard
     parser.add_argument("--energy-weight", type=float, default=0.05)
     parser.add_argument("--force-weight", type=float, default=0.95)
@@ -248,6 +252,7 @@ def main():
         moe_position=args.moe_position,
         load_balance_weight=args.load_balance_weight,
         include_irrep_norms=args.include_irrep_norms,
+        random_route=args.random_route,
     ).to(device)
 
     n_params = sum(p.numel() for p in model.parameters())

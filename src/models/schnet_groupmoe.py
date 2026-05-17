@@ -76,6 +76,7 @@ class SchNetGroupMoE(SchNet):
         moe_position: int | None = None,
         load_balance_weight: float = 0.01,
         include_irrep_norms: bool = False,
+        random_route: bool = False,
     ):
         super().__init__(
             hidden_channels=hidden_channels,
@@ -109,6 +110,7 @@ class SchNetGroupMoE(SchNet):
             scalar_dim=hidden_channels,
             symmetry_types=self.symmetry_types,
             load_balance_weight=load_balance_weight,
+            random_route=random_route,
         )
 
         # Reducer: project rotation-invariant features of the MoE output back to
