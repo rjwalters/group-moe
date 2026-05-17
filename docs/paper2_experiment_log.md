@@ -36,12 +36,12 @@ Establishes Group-MoE works on MD17 force prediction with the same architecture 
 | 9 | SchNet+GroupMoE, ethanol (seed=0) | ✅ | F=**0.272** (−14%), E=0.071 (tie) | `data/md17/results/groupmoe_md17_ethanol_alc8/` |
 | 10 | SchNet baseline, aspirin (seed=0) | ✅ | F=0.932, E=0.344 | `data/md17/results/schnet_md17_aspirin_alc2/` |
 | 11 | SchNet+GroupMoE, aspirin (seed=0) | ✅ | F=**0.727** (−22%), E=0.247 (−28%) | `data/md17/results/groupmoe_md17_aspirin_alc6/` |
-| 12 | SchNet baseline, ethanol seeds 1, 2 | 🟢 | n=3 variance bars; ~done by 2026-05-16 evening | `data/md17/results/schnet_md17_ethanol_alc2_s{1,2}/` |
-| 13 | SchNet baseline, aspirin seeds 1, 2 | 🟢 | n=3 variance bars; ~done by 2026-05-16 evening | `data/md17/results/schnet_md17_aspirin_alc2_s{1,2}/` |
-| 14 | SchNet+GroupMoE, ethanol seeds 1, 2 | 🟢 | n=3 variance bars; ~done by 2026-05-16 evening | `data/md17/results/groupmoe_md17_ethanol_alc8_s{1,2}/` |
-| 15 | SchNet+GroupMoE, aspirin seeds 1, 2 | 🟢 | n=3 variance bars; ~done by 2026-05-16 evening | `data/md17/results/groupmoe_md17_aspirin_alc6_s{1,2}/` |
+| 12 | SchNet baseline, ethanol seeds 1, 2 | ✅ | n=3: F=0.304 ± 0.010, E=0.0721 ± 0.0028 | `data/md17/results/schnet_md17_ethanol_alc2_s{1,2}/` |
+| 13 | SchNet baseline, aspirin seeds 1, 2 | ✅ | n=3: F=0.935 ± 0.021, E=0.3403 ± 0.0082 | `data/md17/results/schnet_md17_aspirin_alc2_s{1,2}/` |
+| 14 | SchNet+GroupMoE, ethanol seeds 1, 2 | ✅ | n=3: F=0.238 ± 0.030 (−22%), E=0.0651 ± 0.0057 (−10%) | `data/md17/results/groupmoe_md17_ethanol_alc8_s{1,2}/` |
+| 15 | SchNet+GroupMoE, aspirin seeds 1, 2 | ✅ | n=3: F=0.709 ± 0.021 (−24%), E=0.2571 ± 0.0139 (−24%) | `data/md17/results/groupmoe_md17_aspirin_alc6_s{1,2}/` |
 
-**Section narrative (writable now):** Identical model + recipe + train/val/test split. Only architectural difference is the inserted MoE block at moe_position=2/4 in SchNet. Force MAE drops 14% on ethanol and 22% on aspirin. Energy MAE drops 28% on aspirin (ties on ethanol). The larger gain on aspirin (21 atoms, more chemical heterogeneity) supports the "router-needs-signal" hypothesis.
+**Section narrative (writable now):** Identical model + recipe + train/val/test split (n=3 seeds). Only architectural difference is the inserted MoE block at moe_position=2/4 in SchNet. Force MAE drops 22% on ethanol (3× seed std) and 24% on aspirin (10× seed std) — both gaps statistically very strong. Energy MAE drops 10% on ethanol and 24% on aspirin. The larger gain on aspirin (21 atoms, more chemical heterogeneity) supports the "router-needs-signal" hypothesis.
 
 ## Breadth (Paper Section: "Across the MD17 Suite")
 
