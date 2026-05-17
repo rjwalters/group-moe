@@ -78,11 +78,12 @@ The chemistry-detection story. This is the interpretability figure.
 
 | # | Experiment | Status | Purpose | File |
 |---|---|---|---|---|
-| 27 | Random-router control on aspirin | 💡 | Distinguish "routing matters" from "extra params matter". If gain persists with randomized router → params; if gain vanishes → routing | — |
-| 28 | Single-expert (no routing) on aspirin | 💡 | Tests pass-through-vs-expert binary alone, no expert specialization | — |
-| 29 | Frozen-router (post-warmup) on aspirin | 💡 | Tests whether ongoing routing updates matter vs early specialization | — |
+| 27 | Random-router control on aspirin (wave 4) | 📋 | Distinguishes "routing matters" from "extra params matter". If gain persists with random router → params doing it; if gain vanishes → learned routing doing it. | wave 4, auto-launches on alc-8 |
+| 28 | Random-router control on ethanol (wave 4) | 📋 | Two-molecule confirmation of the same ablation. | wave 4, auto-launches on alc-6 |
+| 29 | Single-expert (no routing) on aspirin | 💡 | Tests pass-through-vs-expert binary alone, no expert specialization. | — |
+| 30 | Frozen-router (post-warmup) on aspirin | 💡 | Tests whether ongoing routing updates matter vs early specialization. | — |
 
-**Status:** Discussed but not staged. Random-router (#27) is the highest-leverage causal-attribution experiment. Requires a code change (training script flag to randomize router argmax) before queueing.
+**Status:** Random-router code shipped (`f564ee3`); ethanol + aspirin runs auto-launch after wave 3 finishes. Single-expert / frozen-router still planned but not staged.
 
 ## Scale (Paper Section: "Beyond MD17")
 
